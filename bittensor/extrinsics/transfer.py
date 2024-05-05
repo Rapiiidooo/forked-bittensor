@@ -16,12 +16,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import bittensor
-
-from rich.prompt import Confirm
 from typing import Union
-from ..utils.balance import Balance
+
+import bittensor
+from rich.prompt import Confirm
+
 from ..utils import is_valid_bittensor_address_or_public_key
+from ..utils.balance import Balance
 
 
 def transfer_extrinsic(
@@ -78,15 +79,13 @@ def transfer_extrinsic(
         transfer_balance = amount
 
     # Check balance.
-    with bittensor.__console__.status(":satellite: Checking Balance..."):
-        account_balance = subtensor.get_balance(wallet.coldkey.ss58_address)
-        # check existential deposit.
-        existential_deposit = subtensor.get_existential_deposit()
+    account_balance = subtensor.get_balance(wallet.coldkey.ss58_address)
+    # check existential deposit.
+    existential_deposit = subtensor.get_existential_deposit()
 
-    with bittensor.__console__.status(":satellite: Transferring..."):
-        fee = subtensor.get_transfer_fee(
-            wallet=wallet, dest=dest, value=transfer_balance.rao
-        )
+    fee = subtensor.get_transfer_fee(
+        wallet=wallet, dest=dest, value=transfer_balance.rao
+    )
 
     if not keep_alive:
         # Check if the transfer should keep_alive the account
@@ -110,50 +109,44 @@ def transfer_extrinsic(
         ):
             return False
 
-    with bittensor.__console__.status(":satellite: Transferring..."):
-        success, block_hash, err_msg = subtensor._do_transfer(
-            wallet,
-            dest,
-            transfer_balance,
-            wait_for_finalization=wait_for_finalization,
-            wait_for_inclusion=wait_for_inclusion,
-        )
-
-        if success:
-            bittensor.__console__.print(
-                ":white_heavy_check_mark: [green]Finalized[/green]"
-            )
-            bittensor.__console__.print(
-                "[green]Block Hash: {}[/green]".format(block_hash)
-            )
-
-            explorer_urls = bittensor.utils.get_explorer_url_for_network(
-                subtensor.network, block_hash, bittensor.__network_explorer_map__
-            )
-            if explorer_urls != {}:
-                bittensor.__console__.print(
-                    "[green]Opentensor Explorer Link: {}[/green]".format(
-                        explorer_urls.get("opentensor")
-                    )
-                )
-                bittensor.__console__.print(
-                    "[green]Taostats   Explorer Link: {}[/green]".format(
-                        explorer_urls.get("taostats")
-                    )
-                )
-        else:
-            bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(err_msg)
-            )
+    success, block_hash, err_msg = subtensor._do_transfer(
+        wallet,
+        dest,
+        transfer_balance,
+        wait_for_finalization=wait_for_finalization,
+        wait_for_inclusion=wait_for_inclusion,
+    )
 
     if success:
-        with bittensor.__console__.status(":satellite: Checking Balance..."):
-            new_balance = subtensor.get_balance(wallet.coldkey.ss58_address)
+        bittensor.__console__.print(":white_heavy_check_mark: [green]Finalized[/green]")
+        bittensor.__console__.print("[green]Block Hash: {}[/green]".format(block_hash))
+
+        explorer_urls = bittensor.utils.get_explorer_url_for_network(
+            subtensor.network, block_hash, bittensor.__network_explorer_map__
+        )
+        if explorer_urls != {}:
             bittensor.__console__.print(
-                "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                    account_balance, new_balance
+                "[green]Opentensor Explorer Link: {}[/green]".format(
+                    explorer_urls.get("opentensor")
                 )
             )
-            return True
+            bittensor.__console__.print(
+                "[green]Taostats   Explorer Link: {}[/green]".format(
+                    explorer_urls.get("taostats")
+                )
+            )
+    else:
+        bittensor.__console__.print(
+            ":cross_mark: [red]Failed[/red]: error:{}".format(err_msg)
+        )
+
+    if success:
+        new_balance = subtensor.get_balance(wallet.coldkey.ss58_address)
+        bittensor.__console__.print(
+            "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                account_balance, new_balance
+            )
+        )
+        return True
 
     return False

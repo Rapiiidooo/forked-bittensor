@@ -10,14 +10,14 @@
 # The above copyright notice and this permission notice shall be included in all copies or substantial portions of
 # the Software.
 
+import json
+
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
 # THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 import bittensor
-
-import json
 import bittensor.utils.networking as net
 
 
@@ -81,16 +81,15 @@ def prometheus_extrinsic(
         "ip_type": net.ip_version(external_ip),
     }
 
-    with bittensor.__console__.status(":satellite: Checking Prometheus..."):
-        neuron = subtensor.get_neuron_for_pubkey_and_subnet(
-            wallet.hotkey.ss58_address, netuid=netuid
-        )
-        neuron_up_to_date = not neuron.is_null and call_params == {
-            "version": neuron.prometheus_info.version,
-            "ip": net.ip_to_int(neuron.prometheus_info.ip),
-            "port": neuron.prometheus_info.port,
-            "ip_type": neuron.prometheus_info.ip_type,
-        }
+    neuron = subtensor.get_neuron_for_pubkey_and_subnet(
+        wallet.hotkey.ss58_address, netuid=netuid
+    )
+    neuron_up_to_date = not neuron.is_null and call_params == {
+        "version": neuron.prometheus_info.version,
+        "ip": net.ip_to_int(neuron.prometheus_info.ip),
+        "port": neuron.prometheus_info.port,
+        "ip_type": neuron.prometheus_info.ip_type,
+    }
 
     if neuron_up_to_date:
         bittensor.__console__.print(
@@ -112,32 +111,27 @@ def prometheus_extrinsic(
     # Add netuid, not in prometheus_info
     call_params["netuid"] = netuid
 
-    with bittensor.__console__.status(
-        ":satellite: Serving prometheus on: [white]{}:{}[/white] ...".format(
-            subtensor.network, netuid
-        )
-    ):
-        success, err = subtensor._do_serve_prometheus(
-            wallet=wallet,
-            call_params=call_params,
-            wait_for_finalization=wait_for_finalization,
-            wait_for_inclusion=wait_for_inclusion,
-        )
+    success, err = subtensor._do_serve_prometheus(
+        wallet=wallet,
+        call_params=call_params,
+        wait_for_finalization=wait_for_finalization,
+        wait_for_inclusion=wait_for_inclusion,
+    )
 
-        if wait_for_inclusion or wait_for_finalization:
-            if success == True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Served prometheus[/green]\n  [bold white]{}[/bold white]".format(
-                        json.dumps(call_params, indent=4, sort_keys=True)
-                    )
+    if wait_for_inclusion or wait_for_finalization:
+        if success == True:
+            bittensor.__console__.print(
+                ":white_heavy_check_mark: [green]Served prometheus[/green]\n  [bold white]{}[/bold white]".format(
+                    json.dumps(call_params, indent=4, sort_keys=True)
                 )
-                return True
-            else:
-                bittensor.__console__.print(
-                    ":cross_mark: [green]Failed to serve prometheus[/green] error: {}".format(
-                        err
-                    )
-                )
-                return False
-        else:
+            )
             return True
+        else:
+            bittensor.__console__.print(
+                ":cross_mark: [green]Failed to serve prometheus[/green] error: {}".format(
+                    err
+                )
+            )
+            return False
+    else:
+        return True

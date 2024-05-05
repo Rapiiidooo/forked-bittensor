@@ -16,21 +16,20 @@
 # DEALINGS IN THE SOFTWARE.
 
 import json
-import time
-import pytest
 import random
 import re
+import time
+from unittest.mock import patch
+
 import bittensor
+import pytest
+from ansible_vault import Vault
 from bittensor.errors import KeyFileError
 from rich.prompt import Confirm
-from ansible_vault import Vault
-from unittest.mock import patch
 
 
 def legacy_encrypt_keyfile_data(keyfile_data: bytes, password: str = None) -> bytes:
-    console = bittensor.__console__
-    with console.status(":locked_with_key: Encrypting key..."):
-        vault = Vault(password)
+    vault = Vault(password)
     return vault.vault.encrypt(keyfile_data)
 
 
