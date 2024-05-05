@@ -1,9 +1,10 @@
 import argparse
-from rich.table import Table
-from rich.prompt import Prompt
 from sys import getsizeof
 
 import bittensor
+from loguru import logger
+from rich.prompt import Prompt
+from rich.table import Table
 
 
 class SetIdentityCommand:
@@ -116,18 +117,18 @@ class SetIdentityCommand:
             exit(0)
 
         wallet.coldkey  # unlock coldkey
-        with console.status(":satellite: [bold green]Updating identity on-chain..."):
-            try:
-                subtensor.update_identity(
-                    identified=identified,
-                    wallet=wallet,
-                    params=id_dict,
-                )
-            except Exception as e:
-                console.print(f"[red]:cross_mark: Failed![/red] {e}")
-                exit(1)
+        logger.info(":satellite: [bold green]Updating identity on-chain...")
+        try:
+            subtensor.update_identity(
+                identified=identified,
+                wallet=wallet,
+                params=id_dict,
+            )
+        except Exception as e:
+            console.print(f"[red]:cross_mark: Failed![/red] {e}")
+            exit(1)
 
-            console.print(":white_heavy_check_mark: Success!")
+        console.print(":white_heavy_check_mark: Success!")
 
         identity = subtensor.query_identity(identified or wallet.coldkey.ss58_address)
 
@@ -287,8 +288,8 @@ class GetIdentityCommand:
     def _run(cli: "bittensor.cli", subtensor: "bittensor.subtensor"):
         console = bittensor.__console__
 
-        with console.status(":satellite: [bold green]Querying chain identity..."):
-            identity = subtensor.query_identity(cli.config.key)
+        logger.info(":satellite: [bold green]Querying chain identity...")
+        identity = subtensor.query_identity(cli.config.key)
 
         table = Table(title="[bold white italic]On-Chain Identity")
         table.add_column("Item", justify="right", style="cyan", no_wrap=True)

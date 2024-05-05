@@ -16,15 +16,14 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import logging
-import bittensor
-from ..errors import NominationError, NotDelegateError, NotRegisteredError, StakeError
-from rich.prompt import Confirm
 from typing import Union, Optional
-from bittensor.utils.balance import Balance
-from bittensor.btlogging.defines import BITTENSOR_LOGGER_NAME
 
-logger = logging.getLogger(BITTENSOR_LOGGER_NAME)
+import bittensor
+from bittensor.utils.balance import Balance
+from loguru import logger
+from rich.prompt import Confirm
+
+from ..errors import NominationError, NotDelegateError, NotRegisteredError, StakeError
 
 
 def nominate_extrinsic(
@@ -51,44 +50,44 @@ def nominate_extrinsic(
         )
         return False
 
-    with bittensor.__console__.status(
+    logger.info(
         ":satellite: Sending nominate call on [white]{}[/white] ...".format(
             subtensor.network
         )
-    ):
-        try:
-            success = subtensor._do_nominate(
-                wallet=wallet,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+    )
+    try:
+        success = subtensor._do_nominate(
+            wallet=wallet,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
-            if success == True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Finalized[/green]"
-                )
-                bittensor.logging.success(
-                    prefix="Become Delegate",
-                    sufix="<green>Finalized: </green>" + str(success),
-                )
-
-            # Raises NominationError if False
-            return success
-
-        except Exception as e:
+        if success == True:
             bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+                ":white_heavy_check_mark: [green]Finalized[/green]"
             )
-            bittensor.logging.warning(
-                prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+            bittensor.logging.success(
+                prefix="Become Delegate",
+                sufix="<green>Finalized: </green>" + str(success),
             )
-        except NominationError as e:
-            bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(e)
-            )
-            bittensor.logging.warning(
-                prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
-            )
+
+        # Raises NominationError if False
+        return success
+
+    except Exception as e:
+        bittensor.__console__.print(
+            ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+        )
+        bittensor.logging.warning(
+            prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+        )
+    except NominationError as e:
+        bittensor.__console__.print(
+            ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+        )
+        bittensor.logging.warning(
+            prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+        )
 
     return False
 
@@ -165,51 +164,49 @@ def delegate_extrinsic(
             return False
 
     try:
-        with bittensor.__console__.status(
+        logger.info(
             ":satellite: Staking to: [bold white]{}[/bold white] ...".format(
                 subtensor.network
             )
-        ):
-            staking_response: bool = subtensor._do_delegation(
-                wallet=wallet,
-                delegate_ss58=delegate_ss58,
-                amount=staking_balance,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+        )
+        staking_response: bool = subtensor._do_delegation(
+            wallet=wallet,
+            delegate_ss58=delegate_ss58,
+            amount=staking_balance,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
         if staking_response == True:  # If we successfully staked.
             # We only wait here if we expect finalization.
             if not wait_for_finalization and not wait_for_inclusion:
                 return True
 
-            bittensor.__console__.print(
-                ":white_heavy_check_mark: [green]Finalized[/green]"
-            )
-            with bittensor.__console__.status(
+            logger.info(":white_heavy_check_mark: [green]Finalized[/green]")
+            logger.info(
                 ":satellite: Checking Balance on: [white]{}[/white] ...".format(
                     subtensor.network
                 )
-            ):
-                new_balance = subtensor.get_balance(address=wallet.coldkey.ss58_address)
-                block = subtensor.get_current_block()
-                new_delegate_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-                    coldkey_ss58=wallet.coldkeypub.ss58_address,
-                    hotkey_ss58=delegate_ss58,
-                    block=block,
-                )  # Get current stake
+            )
+            new_balance = subtensor.get_balance(address=wallet.coldkey.ss58_address)
+            block = subtensor.get_current_block()
+            new_delegate_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+                coldkey_ss58=wallet.coldkeypub.ss58_address,
+                hotkey_ss58=delegate_ss58,
+                block=block,
+            )  # Get current stake
 
-                bittensor.__console__.print(
-                    "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        my_prev_coldkey_balance, new_balance
-                    )
+            bittensor.__console__.print(
+                "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    my_prev_coldkey_balance, new_balance
                 )
-                bittensor.__console__.print(
-                    "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        my_prev_delegated_stake, new_delegate_stake
-                    )
+            )
+            bittensor.__console__.print(
+                "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    my_prev_delegated_stake, new_delegate_stake
                 )
-                return True
+            )
+            return True
         else:
             bittensor.__console__.print(
                 ":cross_mark: [red]Failed[/red]: Error unknown."
@@ -267,7 +264,7 @@ def undelegate_extrinsic(
     )
 
     # Convert to bittensor.Balance
-    if amount == None:
+    if amount is None:
         # Stake it all.
         unstaking_balance = bittensor.Balance.from_tao(my_prev_delegated_stake.tao)
 
@@ -279,7 +276,7 @@ def undelegate_extrinsic(
 
     # Check enough stake to unstake.
     if unstaking_balance > my_prev_delegated_stake:
-        bittensor.__console__.print(
+        logger.warning(
             ":cross_mark: [red]Not enough delegated stake[/red]:[bold white]\n  stake:{}\n  amount: {}\n coldkey: {}[/bold white]".format(
                 my_prev_delegated_stake, unstaking_balance, wallet.name
             )
@@ -296,64 +293,60 @@ def undelegate_extrinsic(
             return False
 
     try:
-        with bittensor.__console__.status(
+        logger.info(
             ":satellite: Unstaking from: [bold white]{}[/bold white] ...".format(
                 subtensor.network
             )
-        ):
-            staking_response: bool = subtensor._do_undelegation(
-                wallet=wallet,
-                delegate_ss58=delegate_ss58,
-                amount=unstaking_balance,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+        )
+        staking_response: bool = subtensor._do_undelegation(
+            wallet=wallet,
+            delegate_ss58=delegate_ss58,
+            amount=unstaking_balance,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
-        if staking_response == True:  # If we successfully staked.
+        if staking_response is True:  # If we successfully staked.
             # We only wait here if we expect finalization.
             if not wait_for_finalization and not wait_for_inclusion:
                 return True
 
-            bittensor.__console__.print(
-                ":white_heavy_check_mark: [green]Finalized[/green]"
-            )
-            with bittensor.__console__.status(
+            logger.info(":white_heavy_check_mark: [green]Finalized[/green]")
+            logger.info(
                 ":satellite: Checking Balance on: [white]{}[/white] ...".format(
                     subtensor.network
                 )
-            ):
-                new_balance = subtensor.get_balance(address=wallet.coldkey.ss58_address)
-                block = subtensor.get_current_block()
-                new_delegate_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-                    coldkey_ss58=wallet.coldkeypub.ss58_address,
-                    hotkey_ss58=delegate_ss58,
-                    block=block,
-                )  # Get current stake
-
-                bittensor.__console__.print(
-                    "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        my_prev_coldkey_balance, new_balance
-                    )
-                )
-                bittensor.__console__.print(
-                    "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        my_prev_delegated_stake, new_delegate_stake
-                    )
-                )
-                return True
-        else:
-            bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: Error unknown."
             )
+            new_balance = subtensor.get_balance(address=wallet.coldkey.ss58_address)
+            block = subtensor.get_current_block()
+            new_delegate_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+                coldkey_ss58=wallet.coldkeypub.ss58_address,
+                hotkey_ss58=delegate_ss58,
+                block=block,
+            )  # Get current stake
+
+            logger.info(
+                "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    my_prev_coldkey_balance, new_balance
+                )
+            )
+            logger.info(
+                "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    my_prev_delegated_stake, new_delegate_stake
+                )
+            )
+            return True
+        else:
+            logger.error(":cross_mark: [red]Failed[/red]: Error unknown.")
             return False
 
     except NotRegisteredError as e:
-        bittensor.__console__.print(
+        logger.error(
             ":cross_mark: [red]Hotkey: {} is not registered.[/red]".format(
                 wallet.hotkey_str
             )
         )
         return False
     except StakeError as e:
-        bittensor.__console__.print(":cross_mark: [red]Stake Error: {}[/red]".format(e))
+        logger.error(":cross_mark: [red]Stake Error: {}[/red]".format(e))
         return False

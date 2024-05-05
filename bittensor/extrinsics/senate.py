@@ -16,10 +16,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+import time
+
 # Imports
 import bittensor
-
-import time
+from loguru import logger
 from rich.prompt import Confirm
 
 
@@ -53,51 +54,49 @@ def register_senate_extrinsic(
         if not Confirm.ask(f"Register delegate hotkey to senate?"):
             return False
 
-    with bittensor.__console__.status(":satellite: Registering with senate..."):
-        with subtensor.substrate as substrate:
-            # create extrinsic call
-            call = substrate.compose_call(
-                call_module="SubtensorModule",
-                call_function="join_senate",
-                call_params={"hotkey": wallet.hotkey.ss58_address},
-            )
-            extrinsic = substrate.create_signed_extrinsic(
-                call=call, keypair=wallet.coldkey
-            )
-            response = substrate.submit_extrinsic(
-                extrinsic,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+    logger.info(":satellite: Registering with senate...")
+    with subtensor.substrate as substrate:
+        # create extrinsic call
+        call = substrate.compose_call(
+            call_module="SubtensorModule",
+            call_function="join_senate",
+            call_params={"hotkey": wallet.hotkey.ss58_address},
+        )
+        extrinsic = substrate.create_signed_extrinsic(call=call, keypair=wallet.coldkey)
+        response = substrate.submit_extrinsic(
+            extrinsic,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
-            # We only wait here if we expect finalization.
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True
+        # We only wait here if we expect finalization.
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True
 
-            # process if registration successful
-            response.process_events()
-            if not response.is_success:
-                bittensor.__console__.print(
-                    ":cross_mark: [red]Failed[/red]: error:{}".format(
-                        response.error_message
-                    )
+        # process if registration successful
+        response.process_events()
+        if not response.is_success:
+            bittensor.__console__.print(
+                ":cross_mark: [red]Failed[/red]: error:{}".format(
+                    response.error_message
                 )
-                time.sleep(0.5)
+            )
+            time.sleep(0.5)
 
-            # Successful registration, final check for membership
+        # Successful registration, final check for membership
+        else:
+            is_registered = wallet.is_senate_member(subtensor)
+
+            if is_registered:
+                bittensor.__console__.print(
+                    ":white_heavy_check_mark: [green]Registered[/green]"
+                )
+                return True
             else:
-                is_registered = wallet.is_senate_member(subtensor)
-
-                if is_registered:
-                    bittensor.__console__.print(
-                        ":white_heavy_check_mark: [green]Registered[/green]"
-                    )
-                    return True
-                else:
-                    # neuron not found, try again
-                    bittensor.__console__.print(
-                        ":cross_mark: [red]Unknown error. Senate membership not found.[/red]"
-                    )
+                # neuron not found, try again
+                bittensor.__console__.print(
+                    ":cross_mark: [red]Unknown error. Senate membership not found.[/red]"
+                )
 
 
 def leave_senate_extrinsic(
@@ -130,51 +129,49 @@ def leave_senate_extrinsic(
         if not Confirm.ask(f"Remove delegate hotkey from senate?"):
             return False
 
-    with bittensor.__console__.status(":satellite: Leaving senate..."):
-        with subtensor.substrate as substrate:
-            # create extrinsic call
-            call = substrate.compose_call(
-                call_module="SubtensorModule",
-                call_function="leave_senate",
-                call_params={"hotkey": wallet.hotkey.ss58_address},
-            )
-            extrinsic = substrate.create_signed_extrinsic(
-                call=call, keypair=wallet.coldkey
-            )
-            response = substrate.submit_extrinsic(
-                extrinsic,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+    logger.info(":satellite: Leaving senate...")
+    with subtensor.substrate as substrate:
+        # create extrinsic call
+        call = substrate.compose_call(
+            call_module="SubtensorModule",
+            call_function="leave_senate",
+            call_params={"hotkey": wallet.hotkey.ss58_address},
+        )
+        extrinsic = substrate.create_signed_extrinsic(call=call, keypair=wallet.coldkey)
+        response = substrate.submit_extrinsic(
+            extrinsic,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
-            # We only wait here if we expect finalization.
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True
+        # We only wait here if we expect finalization.
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True
 
-            # process if registration successful
-            response.process_events()
-            if not response.is_success:
-                bittensor.__console__.print(
-                    ":cross_mark: [red]Failed[/red]: error:{}".format(
-                        response.error_message
-                    )
+        # process if registration successful
+        response.process_events()
+        if not response.is_success:
+            bittensor.__console__.print(
+                ":cross_mark: [red]Failed[/red]: error:{}".format(
+                    response.error_message
                 )
-                time.sleep(0.5)
+            )
+            time.sleep(0.5)
 
-            # Successful registration, final check for membership
+        # Successful registration, final check for membership
+        else:
+            is_registered = wallet.is_senate_member(subtensor)
+
+            if not is_registered:
+                bittensor.__console__.print(
+                    ":white_heavy_check_mark: [green]Left senate[/green]"
+                )
+                return True
             else:
-                is_registered = wallet.is_senate_member(subtensor)
-
-                if not is_registered:
-                    bittensor.__console__.print(
-                        ":white_heavy_check_mark: [green]Left senate[/green]"
-                    )
-                    return True
-                else:
-                    # neuron not found, try again
-                    bittensor.__console__.print(
-                        ":cross_mark: [red]Unknown error. Senate membership still found.[/red]"
-                    )
+                # neuron not found, try again
+                bittensor.__console__.print(
+                    ":cross_mark: [red]Unknown error. Senate membership still found.[/red]"
+                )
 
 
 def vote_senate_extrinsic(
@@ -210,57 +207,55 @@ def vote_senate_extrinsic(
         if not Confirm.ask("Cast a vote of {}?".format(vote)):
             return False
 
-    with bittensor.__console__.status(":satellite: Casting vote.."):
-        with subtensor.substrate as substrate:
-            # create extrinsic call
-            call = substrate.compose_call(
-                call_module="SubtensorModule",
-                call_function="vote",
-                call_params={
-                    "hotkey": wallet.hotkey.ss58_address,
-                    "proposal": proposal_hash,
-                    "index": proposal_idx,
-                    "approve": vote,
-                },
+    logger.info(":satellite: Casting vote..")
+    with subtensor.substrate as substrate:
+        # create extrinsic call
+        call = substrate.compose_call(
+            call_module="SubtensorModule",
+            call_function="vote",
+            call_params={
+                "hotkey": wallet.hotkey.ss58_address,
+                "proposal": proposal_hash,
+                "index": proposal_idx,
+                "approve": vote,
+            },
+        )
+        extrinsic = substrate.create_signed_extrinsic(call=call, keypair=wallet.coldkey)
+        response = substrate.submit_extrinsic(
+            extrinsic,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
+
+        # We only wait here if we expect finalization.
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True
+
+        # process if vote successful
+        response.process_events()
+        if not response.is_success:
+            bittensor.__console__.print(
+                ":cross_mark: [red]Failed[/red]: error:{}".format(
+                    response.error_message
+                )
             )
-            extrinsic = substrate.create_signed_extrinsic(
-                call=call, keypair=wallet.coldkey
-            )
-            response = substrate.submit_extrinsic(
-                extrinsic,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
+            time.sleep(0.5)
+
+        # Successful vote, final check for data
+        else:
+            vote_data = subtensor.get_vote_data(proposal_hash)
+            has_voted = (
+                vote_data["ayes"].count(wallet.hotkey.ss58_address) > 0
+                or vote_data["nays"].count(wallet.hotkey.ss58_address) > 0
             )
 
-            # We only wait here if we expect finalization.
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True
-
-            # process if vote successful
-            response.process_events()
-            if not response.is_success:
+            if has_voted:
                 bittensor.__console__.print(
-                    ":cross_mark: [red]Failed[/red]: error:{}".format(
-                        response.error_message
-                    )
+                    ":white_heavy_check_mark: [green]Vote cast.[/green]"
                 )
-                time.sleep(0.5)
-
-            # Successful vote, final check for data
+                return True
             else:
-                vote_data = subtensor.get_vote_data(proposal_hash)
-                has_voted = (
-                    vote_data["ayes"].count(wallet.hotkey.ss58_address) > 0
-                    or vote_data["nays"].count(wallet.hotkey.ss58_address) > 0
+                # hotkey not found in ayes/nays
+                bittensor.__console__.print(
+                    ":cross_mark: [red]Unknown error. Couldn't find vote.[/red]"
                 )
-
-                if has_voted:
-                    bittensor.__console__.print(
-                        ":white_heavy_check_mark: [green]Vote cast.[/green]"
-                    )
-                    return True
-                else:
-                    # hotkey not found in ayes/nays
-                    bittensor.__console__.print(
-                        ":cross_mark: [red]Unknown error. Couldn't find vote.[/red]"
-                    )

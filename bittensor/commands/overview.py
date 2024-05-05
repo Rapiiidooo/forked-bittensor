@@ -16,22 +16,25 @@
 # DEALINGS IN THE SOFTWARE.
 
 import argparse
-import bittensor
-from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor
 from collections import defaultdict
-from fuzzywuzzy import fuzz
-from rich.align import Align
-from rich.table import Table
-from rich.prompt import Prompt
+from concurrent.futures import ProcessPoolExecutor
 from typing import List, Optional, Dict, Tuple
+
+import bittensor
+from fuzzywuzzy import fuzz
+from loguru import logger
+from rich.align import Align
+from rich.prompt import Prompt
+from rich.table import Table
+from tqdm import tqdm
+
+from . import defaults
 from .utils import (
     get_hotkey_wallets_for_wallet,
     get_coldkey_wallets_for_path,
     get_all_wallets_for_path,
     filter_netuids_by_registered_hotkeys,
 )
-from . import defaults
 
 console = bittensor.__console__
 
@@ -176,132 +179,132 @@ class OverviewCommand:
             ] = hotkey_wallet
 
         all_hotkey_addresses = list(hotkey_coldkey_to_hotkey_wallet.keys())
-        with console.status(
+        logger.info(
             ":satellite: Syncing with chain: [white]{}[/white] ...".format(
                 cli.config.subtensor.get(
                     "network", bittensor.defaults.subtensor.network
                 )
             )
-        ):
-            # Create a copy of the config without the parser and formatter_class.
-            ## This is needed to pass to the ProcessPoolExecutor, which cannot pickle the parser.
-            copy_config = cli.config.copy()
-            copy_config["__parser"] = None
-            copy_config["formatter_class"] = None
+        )
+        # Create a copy of the config without the parser and formatter_class.
+        ## This is needed to pass to the ProcessPoolExecutor, which cannot pickle the parser.
+        copy_config = cli.config.copy()
+        copy_config["__parser"] = None
+        copy_config["formatter_class"] = None
 
-            # Pull neuron info for all keys.
-            ## Max len(netuids) or 5 threads.
-            with ProcessPoolExecutor(max_workers=max(len(netuids), 5)) as executor:
-                results = executor.map(
-                    OverviewCommand._get_neurons_for_netuid,
-                    [(copy_config, netuid, all_hotkey_addresses) for netuid in netuids],
-                )
-                executor.shutdown(wait=True)  # wait for all complete
-
-                for result in results:
-                    netuid, neurons_result, err_msg = result
-                    if err_msg is not None:
-                        console.print(f"netuid '{netuid}': {err_msg}")
-
-                    if len(neurons_result) == 0:
-                        # Remove netuid from overview if no neurons are found.
-                        netuids.remove(netuid)
-                        del neurons[str(netuid)]
-                    else:
-                        # Add neurons to overview.
-                        neurons[str(netuid)] = neurons_result
-
-            total_coldkey_stake_from_metagraph = defaultdict(
-                lambda: bittensor.Balance(0.0)
+        # Pull neuron info for all keys.
+        ## Max len(netuids) or 5 threads.
+        with ProcessPoolExecutor(max_workers=max(len(netuids), 5)) as executor:
+            results = executor.map(
+                OverviewCommand._get_neurons_for_netuid,
+                [(copy_config, netuid, all_hotkey_addresses) for netuid in netuids],
             )
-            checked_hotkeys = set()
-            for neuron_list in neurons.values():
-                for neuron in neuron_list:
-                    if neuron.hotkey in checked_hotkeys:
-                        continue
-                    total_coldkey_stake_from_metagraph[
-                        neuron.coldkey
-                    ] += neuron.stake_dict[neuron.coldkey]
-                    checked_hotkeys.add(neuron.hotkey)
-
-            alerts_table = Table(show_header=True, header_style="bold magenta")
-            alerts_table.add_column("🥩 alert!")
-
-            coldkeys_to_check = []
-            for coldkey_wallet in all_coldkey_wallets:
-                # Check if we have any stake with hotkeys that are not registered.
-                total_coldkey_stake_from_chain = subtensor.get_total_stake_for_coldkey(
-                    ss58_address=coldkey_wallet.coldkeypub.ss58_address
-                )
-                difference = (
-                    total_coldkey_stake_from_chain
-                    - total_coldkey_stake_from_metagraph[
-                        coldkey_wallet.coldkeypub.ss58_address
-                    ]
-                )
-                if difference == 0:
-                    continue  # We have all our stake registered.
-
-                coldkeys_to_check.append(coldkey_wallet)
-                alerts_table.add_row(
-                    "Found {} stake with coldkey {} that is not registered.".format(
-                        difference, coldkey_wallet.coldkeypub.ss58_address
-                    )
-                )
-
-            if len(coldkeys_to_check) > 0:
-                # We have some stake that is not with a registered hotkey.
-                if "-1" not in neurons:
-                    neurons["-1"] = []
-
-            # Use process pool to check each coldkey wallet for de-registered stake.
-            with ProcessPoolExecutor(
-                max_workers=max(len(coldkeys_to_check), 5)
-            ) as executor:
-                results = executor.map(
-                    OverviewCommand._get_de_registered_stake_for_coldkey_wallet,
-                    [
-                        (cli.config, all_hotkey_addresses, coldkey_wallet)
-                        for coldkey_wallet in coldkeys_to_check
-                    ],
-                )
-                executor.shutdown(wait=True)  # wait for all complete
+            executor.shutdown(wait=True)  # wait for all complete
 
             for result in results:
-                coldkey_wallet, de_registered_stake, err_msg = result
+                netuid, neurons_result, err_msg = result
                 if err_msg is not None:
-                    console.print(err_msg)
+                    console.print(f"netuid '{netuid}': {err_msg}")
 
-                if len(de_registered_stake) == 0:
-                    continue  # We have no de-registered stake with this coldkey.
+                if len(neurons_result) == 0:
+                    # Remove netuid from overview if no neurons are found.
+                    netuids.remove(netuid)
+                    del neurons[str(netuid)]
+                else:
+                    # Add neurons to overview.
+                    neurons[str(netuid)] = neurons_result
 
-                de_registered_neurons = []
-                for hotkey_addr, our_stake in de_registered_stake:
-                    # Make a neuron info lite for this hotkey and coldkey.
-                    de_registered_neuron = bittensor.NeuronInfoLite._null_neuron()
-                    de_registered_neuron.hotkey = hotkey_addr
-                    de_registered_neuron.coldkey = (
-                        coldkey_wallet.coldkeypub.ss58_address
-                    )
-                    de_registered_neuron.total_stake = bittensor.Balance(our_stake)
+        total_coldkey_stake_from_metagraph = defaultdict(
+            lambda: bittensor.Balance(0.0)
+        )
+        checked_hotkeys = set()
+        for neuron_list in neurons.values():
+            for neuron in neuron_list:
+                if neuron.hotkey in checked_hotkeys:
+                    continue
+                total_coldkey_stake_from_metagraph[
+                    neuron.coldkey
+                ] += neuron.stake_dict[neuron.coldkey]
+                checked_hotkeys.add(neuron.hotkey)
 
-                    de_registered_neurons.append(de_registered_neuron)
+        alerts_table = Table(show_header=True, header_style="bold magenta")
+        alerts_table.add_column("🥩 alert!")
 
-                    # Add this hotkey to the wallets dict
-                    wallet_ = bittensor.wallet(
-                        name=wallet,
-                    )
-                    wallet_.hotkey_ss58 = hotkey_addr
-                    wallet.hotkey_str = hotkey_addr[:5]  # Max length of 5 characters
-                    # Indicates a hotkey not on local machine but exists in stake_info obj on-chain
-                    if hotkey_coldkey_to_hotkey_wallet.get(hotkey_addr) == None:
-                        hotkey_coldkey_to_hotkey_wallet[hotkey_addr] = {}
-                    hotkey_coldkey_to_hotkey_wallet[hotkey_addr][
-                        coldkey_wallet.coldkeypub.ss58_address
-                    ] = wallet_
+        coldkeys_to_check = []
+        for coldkey_wallet in all_coldkey_wallets:
+            # Check if we have any stake with hotkeys that are not registered.
+            total_coldkey_stake_from_chain = subtensor.get_total_stake_for_coldkey(
+                ss58_address=coldkey_wallet.coldkeypub.ss58_address
+            )
+            difference = (
+                total_coldkey_stake_from_chain
+                - total_coldkey_stake_from_metagraph[
+                    coldkey_wallet.coldkeypub.ss58_address
+                ]
+            )
+            if difference == 0:
+                continue  # We have all our stake registered.
 
-                # Add neurons to overview.
-                neurons["-1"].extend(de_registered_neurons)
+            coldkeys_to_check.append(coldkey_wallet)
+            alerts_table.add_row(
+                "Found {} stake with coldkey {} that is not registered.".format(
+                    difference, coldkey_wallet.coldkeypub.ss58_address
+                )
+            )
+
+        if len(coldkeys_to_check) > 0:
+            # We have some stake that is not with a registered hotkey.
+            if "-1" not in neurons:
+                neurons["-1"] = []
+
+        # Use process pool to check each coldkey wallet for de-registered stake.
+        with ProcessPoolExecutor(
+            max_workers=max(len(coldkeys_to_check), 5)
+        ) as executor:
+            results = executor.map(
+                OverviewCommand._get_de_registered_stake_for_coldkey_wallet,
+                [
+                    (cli.config, all_hotkey_addresses, coldkey_wallet)
+                    for coldkey_wallet in coldkeys_to_check
+                ],
+            )
+            executor.shutdown(wait=True)  # wait for all complete
+
+        for result in results:
+            coldkey_wallet, de_registered_stake, err_msg = result
+            if err_msg is not None:
+                console.print(err_msg)
+
+            if len(de_registered_stake) == 0:
+                continue  # We have no de-registered stake with this coldkey.
+
+            de_registered_neurons = []
+            for hotkey_addr, our_stake in de_registered_stake:
+                # Make a neuron info lite for this hotkey and coldkey.
+                de_registered_neuron = bittensor.NeuronInfoLite._null_neuron()
+                de_registered_neuron.hotkey = hotkey_addr
+                de_registered_neuron.coldkey = (
+                    coldkey_wallet.coldkeypub.ss58_address
+                )
+                de_registered_neuron.total_stake = bittensor.Balance(our_stake)
+
+                de_registered_neurons.append(de_registered_neuron)
+
+                # Add this hotkey to the wallets dict
+                wallet_ = bittensor.wallet(
+                    name=wallet,
+                )
+                wallet_.hotkey_ss58 = hotkey_addr
+                wallet.hotkey_str = hotkey_addr[:5]  # Max length of 5 characters
+                # Indicates a hotkey not on local machine but exists in stake_info obj on-chain
+                if hotkey_coldkey_to_hotkey_wallet.get(hotkey_addr) == None:
+                    hotkey_coldkey_to_hotkey_wallet[hotkey_addr] = {}
+                hotkey_coldkey_to_hotkey_wallet[hotkey_addr][
+                    coldkey_wallet.coldkeypub.ss58_address
+                ] = wallet_
+
+            # Add neurons to overview.
+            neurons["-1"].extend(de_registered_neurons)
 
         # Setup outer table.
         grid = Table.grid(pad_edge=False)

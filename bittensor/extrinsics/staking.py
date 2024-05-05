@@ -16,11 +16,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import bittensor
-from rich.prompt import Confirm
 from time import sleep
 from typing import List, Union, Optional
+
+import bittensor
 from bittensor.utils.balance import Balance
+from loguru import logger
+from rich.prompt import Confirm
 
 
 def add_stake_extrinsic(
@@ -67,32 +69,32 @@ def add_stake_extrinsic(
     # Flag to indicate if we are using the wallet's own hotkey.
     own_hotkey: bool
 
-    with bittensor.__console__.status(
+    logger.info(
         ":satellite: Syncing with chain: [white]{}[/white] ...".format(
             subtensor.network
         )
-    ):
-        old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
-        # Get hotkey owner
-        hotkey_owner = subtensor.get_hotkey_owner(hotkey_ss58)
-        own_hotkey = wallet.coldkeypub.ss58_address == hotkey_owner
-        if not own_hotkey:
-            # This is not the wallet's own hotkey so we are delegating.
-            if not subtensor.is_hotkey_delegate(hotkey_ss58):
-                raise bittensor.errors.NotDelegateError(
-                    "Hotkey: {} is not a delegate.".format(hotkey_ss58)
-                )
+    )
+    old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+    # Get hotkey owner
+    hotkey_owner = subtensor.get_hotkey_owner(hotkey_ss58)
+    own_hotkey = wallet.coldkeypub.ss58_address == hotkey_owner
+    if not own_hotkey:
+        # This is not the wallet's own hotkey so we are delegating.
+        if not subtensor.is_hotkey_delegate(hotkey_ss58):
+            raise bittensor.errors.NotDelegateError(
+                "Hotkey: {} is not a delegate.".format(hotkey_ss58)
+            )
 
-            # Get hotkey take
-            hotkey_take = subtensor.get_delegate_take(hotkey_ss58)
+        # Get hotkey take
+        hotkey_take = subtensor.get_delegate_take(hotkey_ss58)
 
-        # Get current stake
-        old_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-            coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
-        )
+    # Get current stake
+    old_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+        coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
+    )
 
     # Convert to bittensor.Balance
-    if amount == None:
+    if amount is None:
         # Stake it all.
         staking_balance = bittensor.Balance.from_tao(old_balance.tao)
     elif not isinstance(amount, bittensor.Balance):
@@ -134,21 +136,21 @@ def add_stake_extrinsic(
                 return False
 
     try:
-        with bittensor.__console__.status(
+        logger.info(
             ":satellite: Staking to: [bold white]{}[/bold white] ...".format(
                 subtensor.network
             )
-        ):
-            staking_response: bool = __do_add_stake_single(
-                subtensor=subtensor,
-                wallet=wallet,
-                hotkey_ss58=hotkey_ss58,
-                amount=staking_balance,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+        )
+        staking_response: bool = __do_add_stake_single(
+            subtensor=subtensor,
+            wallet=wallet,
+            hotkey_ss58=hotkey_ss58,
+            amount=staking_balance,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
-        if staking_response == True:  # If we successfully staked.
+        if staking_response is True:  # If we successfully staked.
             # We only wait here if we expect finalization.
             if not wait_for_finalization and not wait_for_inclusion:
                 return True
@@ -156,32 +158,30 @@ def add_stake_extrinsic(
             bittensor.__console__.print(
                 ":white_heavy_check_mark: [green]Finalized[/green]"
             )
-            with bittensor.__console__.status(
+            logger.info(
                 ":satellite: Checking Balance on: [white]{}[/white] ...".format(
                     subtensor.network
                 )
-            ):
-                new_balance = subtensor.get_balance(
-                    address=wallet.coldkeypub.ss58_address
-                )
-                block = subtensor.get_current_block()
-                new_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-                    coldkey_ss58=wallet.coldkeypub.ss58_address,
-                    hotkey_ss58=wallet.hotkey.ss58_address,
-                    block=block,
-                )  # Get current stake
+            )
+            new_balance = subtensor.get_balance(address=wallet.coldkeypub.ss58_address)
+            block = subtensor.get_current_block()
+            new_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+                coldkey_ss58=wallet.coldkeypub.ss58_address,
+                hotkey_ss58=wallet.hotkey.ss58_address,
+                block=block,
+            )  # Get current stake
 
-                bittensor.__console__.print(
-                    "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        old_balance, new_balance
-                    )
+            bittensor.__console__.print(
+                "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    old_balance, new_balance
                 )
-                bittensor.__console__.print(
-                    "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        old_stake, new_stake
-                    )
+            )
+            bittensor.__console__.print(
+                "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    old_stake, new_stake
                 )
-                return True
+            )
+            return True
         else:
             bittensor.__console__.print(
                 ":cross_mark: [red]Failed[/red]: Error unknown."
@@ -263,20 +263,20 @@ def add_stake_multiple_extrinsic(
     wallet.coldkey
 
     old_stakes = []
-    with bittensor.__console__.status(
+    logger.info(
         ":satellite: Syncing with chain: [white]{}[/white] ...".format(
             subtensor.network
         )
-    ):
-        old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+    )
+    old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
 
-        # Get the old stakes.
-        for hotkey_ss58 in hotkey_ss58s:
-            old_stakes.append(
-                subtensor.get_stake_for_coldkey_and_hotkey(
-                    coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
-                )
+    # Get the old stakes.
+    for hotkey_ss58 in hotkey_ss58s:
+        old_stakes.append(
+            subtensor.get_stake_for_coldkey_and_hotkey(
+                coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
             )
+        )
 
     # Remove existential balance to keep key alive.
     ## Keys must maintain a balance of at least 1000 rao to stay alive.
@@ -409,13 +409,13 @@ def add_stake_multiple_extrinsic(
             continue
 
     if successful_stakes != 0:
-        with bittensor.__console__.status(
+        logger.info(
             ":satellite: Checking Balance on: ([white]{}[/white] ...".format(
                 subtensor.network
             )
-        ):
-            new_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
-        bittensor.__console__.print(
+        )
+        new_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+        logger.info(
             "Balance: [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
                 old_balance, new_balance
             )

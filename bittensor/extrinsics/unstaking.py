@@ -16,11 +16,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import bittensor
-from rich.prompt import Confirm
 from time import sleep
 from typing import List, Union, Optional
+
+import bittensor
 from bittensor.utils.balance import Balance
+from loguru import logger
+from rich.prompt import Confirm
 
 
 def __do_remove_stake_single(
@@ -105,18 +107,18 @@ def unstake_extrinsic(
     if hotkey_ss58 is None:
         hotkey_ss58 = wallet.hotkey.ss58_address  # Default to wallet's own hotkey.
 
-    with bittensor.__console__.status(
+    logger.info(
         ":satellite: Syncing with chain: [white]{}[/white] ...".format(
             subtensor.network
         )
-    ):
-        old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
-        old_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-            coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
-        )
+    )
+    old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+    old_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+        coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
+    )
 
     # Convert to bittensor.Balance
-    if amount == None:
+    if amount is None:
         # Unstake it all.
         unstaking_balance = old_stake
     elif not isinstance(amount, bittensor.Balance):
@@ -144,21 +146,21 @@ def unstake_extrinsic(
             return False
 
     try:
-        with bittensor.__console__.status(
+        logger.info(
             ":satellite: Unstaking from chain: [white]{}[/white] ...".format(
                 subtensor.network
             )
-        ):
-            staking_response: bool = __do_remove_stake_single(
-                subtensor=subtensor,
-                wallet=wallet,
-                hotkey_ss58=hotkey_ss58,
-                amount=unstaking_balance,
-                wait_for_inclusion=wait_for_inclusion,
-                wait_for_finalization=wait_for_finalization,
-            )
+        )
+        staking_response: bool = __do_remove_stake_single(
+            subtensor=subtensor,
+            wallet=wallet,
+            hotkey_ss58=hotkey_ss58,
+            amount=unstaking_balance,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
 
-        if staking_response == True:  # If we successfully unstaked.
+        if staking_response is True:  # If we successfully unstaked.
             # We only wait here if we expect finalization.
             if not wait_for_finalization and not wait_for_inclusion:
                 return True
@@ -166,28 +168,26 @@ def unstake_extrinsic(
             bittensor.__console__.print(
                 ":white_heavy_check_mark: [green]Finalized[/green]"
             )
-            with bittensor.__console__.status(
+            logger.info(
                 ":satellite: Checking Balance on: [white]{}[/white] ...".format(
                     subtensor.network
                 )
-            ):
-                new_balance = subtensor.get_balance(
-                    address=wallet.coldkeypub.ss58_address
+            )
+            new_balance = subtensor.get_balance(address=wallet.coldkeypub.ss58_address)
+            new_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+                coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
+            )  # Get stake on hotkey.
+            bittensor.__console__.print(
+                "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    old_balance, new_balance
                 )
-                new_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-                    coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
-                )  # Get stake on hotkey.
-                bittensor.__console__.print(
-                    "Balance:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        old_balance, new_balance
-                    )
+            )
+            bittensor.__console__.print(
+                "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                    old_stake, new_stake
                 )
-                bittensor.__console__.print(
-                    "Stake:\n  [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                        old_stake, new_stake
-                    )
-                )
-                return True
+            )
+            return True
         else:
             bittensor.__console__.print(
                 ":cross_mark: [red]Failed[/red]: Error unknown."
@@ -269,18 +269,18 @@ def unstake_multiple_extrinsic(
     wallet.coldkey
 
     old_stakes = []
-    with bittensor.__console__.status(
+    logger.info(
         ":satellite: Syncing with chain: [white]{}[/white] ...".format(
             subtensor.network
         )
-    ):
-        old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+    )
+    old_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
 
-        for hotkey_ss58 in hotkey_ss58s:
-            old_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-                coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
-            )  # Get stake on hotkey.
-            old_stakes.append(old_stake)  # None if not registered.
+    for hotkey_ss58 in hotkey_ss58s:
+        old_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+            coldkey_ss58=wallet.coldkeypub.ss58_address, hotkey_ss58=hotkey_ss58
+        )  # Get stake on hotkey.
+        old_stakes.append(old_stake)  # None if not registered.
 
     successful_unstakes = 0
     for idx, (hotkey_ss58, amount, old_stake) in enumerate(
@@ -315,21 +315,21 @@ def unstake_multiple_extrinsic(
                 continue
 
         try:
-            with bittensor.__console__.status(
+            logger.info(
                 ":satellite: Unstaking from chain: [white]{}[/white] ...".format(
                     subtensor.network
                 )
-            ):
-                staking_response: bool = __do_remove_stake_single(
-                    subtensor=subtensor,
-                    wallet=wallet,
-                    hotkey_ss58=hotkey_ss58,
-                    amount=unstaking_balance,
-                    wait_for_inclusion=wait_for_inclusion,
-                    wait_for_finalization=wait_for_finalization,
-                )
+            )
+            staking_response: bool = __do_remove_stake_single(
+                subtensor=subtensor,
+                wallet=wallet,
+                hotkey_ss58=hotkey_ss58,
+                amount=unstaking_balance,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
 
-            if staking_response == True:  # If we successfully unstaked.
+            if staking_response is True:  # If we successfully unstaked.
                 # We only wait here if we expect finalization.
 
                 if idx < len(hotkey_ss58s) - 1:
@@ -347,26 +347,24 @@ def unstake_multiple_extrinsic(
                     successful_unstakes += 1
                     continue
 
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Finalized[/green]"
-                )
-                with bittensor.__console__.status(
+                logger.info(":white_heavy_check_mark: [green]Finalized[/green]")
+                logger.info(
                     ":satellite: Checking Balance on: [white]{}[/white] ...".format(
                         subtensor.network
                     )
-                ):
-                    block = subtensor.get_current_block()
-                    new_stake = subtensor.get_stake_for_coldkey_and_hotkey(
-                        coldkey_ss58=wallet.coldkeypub.ss58_address,
-                        hotkey_ss58=hotkey_ss58,
-                        block=block,
+                )
+                block = subtensor.get_current_block()
+                new_stake = subtensor.get_stake_for_coldkey_and_hotkey(
+                    coldkey_ss58=wallet.coldkeypub.ss58_address,
+                    hotkey_ss58=hotkey_ss58,
+                    block=block,
+                )
+                bittensor.__console__.print(
+                    "Stake ({}): [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
+                        hotkey_ss58, stake_on_uid, new_stake
                     )
-                    bittensor.__console__.print(
-                        "Stake ({}): [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
-                            hotkey_ss58, stake_on_uid, new_stake
-                        )
-                    )
-                    successful_unstakes += 1
+                )
+                successful_unstakes += 1
             else:
                 bittensor.__console__.print(
                     ":cross_mark: [red]Failed[/red]: Error unknown."
@@ -385,12 +383,12 @@ def unstake_multiple_extrinsic(
             continue
 
     if successful_unstakes != 0:
-        with bittensor.__console__.status(
+        logger.info(
             ":satellite: Checking Balance on: ([white]{}[/white] ...".format(
                 subtensor.network
             )
-        ):
-            new_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+        )
+        new_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
         bittensor.__console__.print(
             "Balance: [blue]{}[/blue] :arrow_right: [green]{}[/green]".format(
                 old_balance, new_balance

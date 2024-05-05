@@ -16,15 +16,15 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import bittensor
-
-import time
-import torch
 import logging
-from rich.prompt import Confirm
+import time
 from typing import Union
+
+import bittensor
 import bittensor.utils.weight_utils as weight_utils
+import torch
 from bittensor.btlogging.defines import BITTENSOR_LOGGER_NAME
+from rich.prompt import Confirm
 
 logger = logging.getLogger(BITTENSOR_LOGGER_NAME)
 
@@ -68,34 +68,34 @@ def root_register_extrinsic(
         if not Confirm.ask(f"Register to root network?"):
             return False
 
-    with bittensor.__console__.status(":satellite: Registering to root network..."):
-        success, err_msg = subtensor._do_root_register(
-            wallet=wallet,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
+    logger.info(":satellite: Registering to root network...")
+    success, err_msg = subtensor._do_root_register(
+        wallet=wallet,
+        wait_for_inclusion=wait_for_inclusion,
+        wait_for_finalization=wait_for_finalization,
+    )
+
+    if success is not True or success is False:
+        bittensor.__console__.print(
+            ":cross_mark: [red]Failed[/red]: error:{}".format(err_msg)
         )
+        time.sleep(0.5)
 
-        if success != True or success == False:
+    # Successful registration, final check for neuron and pubkey
+    else:
+        is_registered = subtensor.is_hotkey_registered(
+            netuid=0, hotkey_ss58=wallet.hotkey.ss58_address
+        )
+        if is_registered:
             bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(err_msg)
+                ":white_heavy_check_mark: [green]Registered[/green]"
             )
-            time.sleep(0.5)
-
-        # Successful registration, final check for neuron and pubkey
+            return True
         else:
-            is_registered = subtensor.is_hotkey_registered(
-                netuid=0, hotkey_ss58=wallet.hotkey.ss58_address
+            # neuron not found, try again
+            bittensor.__console__.print(
+                ":cross_mark: [red]Unknown error. Neuron not found.[/red]"
             )
-            if is_registered:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Registered[/green]"
-                )
-                return True
-            else:
-                # neuron not found, try again
-                bittensor.__console__.print(
-                    ":cross_mark: [red]Unknown error. Neuron not found.[/red]"
-                )
 
 
 def set_root_weights_extrinsic(
@@ -167,55 +167,52 @@ def set_root_weights_extrinsic(
         ):
             return False
 
-    with bittensor.__console__.status(
+    logger.info(
         ":satellite: Setting root weights on [white]{}[/white] ...".format(
             subtensor.network
         )
-    ):
-        try:
-            weight_uids, weight_vals = weight_utils.convert_weights_and_uids_for_emit(
-                netuids, weights
-            )
-            success, error_message = subtensor._do_set_weights(
-                wallet=wallet,
-                netuid=0,
-                uids=weight_uids,
-                vals=weight_vals,
-                version_key=version_key,
-                wait_for_finalization=wait_for_finalization,
-                wait_for_inclusion=wait_for_inclusion,
-            )
+    )
+    try:
+        weight_uids, weight_vals = weight_utils.convert_weights_and_uids_for_emit(
+            netuids, weights
+        )
+        success, error_message = subtensor._do_set_weights(
+            wallet=wallet,
+            netuid=0,
+            uids=weight_uids,
+            vals=weight_vals,
+            version_key=version_key,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_inclusion=wait_for_inclusion,
+        )
 
-            bittensor.__console__.print(success, error_message)
+        bittensor.__console__.print(success, error_message)
 
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True
 
-            if success == True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Finalized[/green]"
-                )
-                bittensor.logging.success(
-                    prefix="Set weights",
-                    sufix="<green>Finalized: </green>" + str(success),
-                )
-                return True
-            else:
-                bittensor.__console__.print(
-                    ":cross_mark: [red]Failed[/red]: error:{}".format(error_message)
-                )
-                bittensor.logging.warning(
-                    prefix="Set weights",
-                    sufix="<red>Failed: </red>" + str(error_message),
-                )
-                return False
-
-        except Exception as e:
-            # TODO( devs ): lets remove all of the bittensor.__console__ calls and replace with the bittensor logger.
+        if success == True:
             bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+                ":white_heavy_check_mark: [green]Finalized[/green]"
+            )
+            bittensor.logging.success(
+                prefix="Set weights",
+                sufix="<green>Finalized: </green>" + str(success),
+            )
+            return True
+        else:
+            bittensor.__console__.print(
+                ":cross_mark: [red]Failed[/red]: error:{}".format(error_message)
             )
             bittensor.logging.warning(
-                prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+                prefix="Set weights",
+                sufix="<red>Failed: </red>" + str(error_message),
             )
             return False
+
+    except Exception as e:
+        logger.error(":cross_mark: [red]Failed[/red]: error:{}".format(e))
+        bittensor.logging.warning(
+            prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+        )
+        return False
