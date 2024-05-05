@@ -16,16 +16,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import bittensor
-
-import torch
-import logging
-from rich.prompt import Confirm
 from typing import Union, Tuple
-import bittensor.utils.weight_utils as weight_utils
-from bittensor.btlogging.defines import BITTENSOR_LOGGER_NAME
 
-logger = logging.getLogger(BITTENSOR_LOGGER_NAME)
+import bittensor
+import bittensor.utils.weight_utils as weight_utils
+import torch
+from loguru import logger
+from rich.prompt import Confirm
 
 
 def set_weights_extrinsic(
@@ -85,48 +82,44 @@ def set_weights_extrinsic(
         ):
             return False, "Prompt refused."
 
-    with bittensor.__console__.status(
-        ":satellite: Setting weights on [white]{}[/white] ...".format(subtensor.network)
-    ):
-        try:
-            success, error_message = subtensor._do_set_weights(
-                wallet=wallet,
-                netuid=netuid,
-                uids=weight_uids,
-                vals=weight_vals,
-                version_key=version_key,
-                wait_for_finalization=wait_for_finalization,
-                wait_for_inclusion=wait_for_inclusion,
+    logger.info(
+        f":satellite: Setting weights on <white>{subtensor.network}</white> ..."
+    )
+    try:
+        success, error_message = subtensor._do_set_weights(
+            wallet=wallet,
+            netuid=netuid,
+            uids=weight_uids,
+            vals=weight_vals,
+            version_key=version_key,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_inclusion=wait_for_inclusion,
+        )
+
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True, "Not waiting for finalization or inclusion."
+
+        if success is True:
+            logger.success(":white_heavy_check_mark: <green>Finalized</green>")
+            bittensor.logging.success(
+                prefix="Set weights",
+                sufix="<green>Finalized: </green>" + str(success),
             )
-
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True, "Not waiting for finalization or inclusion."
-
-            if success == True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Finalized[/green]"
-                )
-                bittensor.logging.success(
-                    prefix="Set weights",
-                    sufix="<green>Finalized: </green>" + str(success),
-                )
-                return True, "Successfully set weights and Finalized."
-            else:
-                bittensor.__console__.print(
-                    ":cross_mark: [red]Failed[/red]: error:{}".format(error_message)
-                )
-                bittensor.logging.warning(
-                    prefix="Set weights",
-                    sufix="<red>Failed: </red>" + str(error_message),
-                )
-                return False, error_message
-
-        except Exception as e:
-            # TODO( devs ): lets remove all of the bittensor.__console__ calls and replace with loguru.
+            return True, "Successfully set weights and Finalized."
+        else:
             bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+                ":cross_mark: [red]Failed[/red]: error:{}".format(error_message)
             )
             bittensor.logging.warning(
-                prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+                prefix="Set weights",
+                sufix="<red>Failed: </red>" + str(error_message),
             )
-            return False, str(e)
+            return False, error_message
+
+    except Exception as e:
+        # TODO( devs ): lets remove all of the bittensor.__console__ calls and replace with loguru.
+        logger.error(f":cross_mark: <red>Failed</red>: error: {e}")
+        bittensor.logging.warning(
+            prefix="Set weights", sufix="<red>Failed: </red>" + str(e)
+        )
+        return False, str(e)

@@ -15,24 +15,22 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-import sys
-import os
 import argparse
-import bittensor
-from typing import List, Optional
-from rich.table import Table
-from rich.prompt import Prompt
-from rich.prompt import Confirm
-from rich.console import Text
-from tqdm import tqdm
-from substrateinterface.exceptions import SubstrateRequestException
-from .utils import get_delegates_details, DelegatesDetails
-from .identity import SetIdentityCommand
-from . import defaults
-
 import os
-import bittensor
+import sys
 from typing import List, Dict, Optional
+
+import bittensor
+from rich.console import Text
+from rich.prompt import Confirm
+from rich.prompt import Prompt
+from rich.table import Table
+from substrateinterface.exceptions import SubstrateRequestException
+from tqdm import tqdm
+
+from . import defaults
+from .identity import SetIdentityCommand
+from .utils import get_delegates_details, DelegatesDetails
 
 
 def _get_coldkey_wallets_for_path(path: str) -> List["bittensor.wallet"]:
