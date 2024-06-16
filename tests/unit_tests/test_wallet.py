@@ -26,11 +26,17 @@ from rich.prompt import Confirm
 from ansible_vault import Vault
 from unittest.mock import patch
 
+import logging
+from bittensor.btlogging.defines import BITTENSOR_LOGGER_NAME
+
+logger = logging.getLogger(BITTENSOR_LOGGER_NAME)
+
+
 
 def legacy_encrypt_keyfile_data(keyfile_data: bytes, password: str = None) -> bytes:
     console = bittensor.__console__
-    with console.status(":locked_with_key: Encrypting key..."):
-        vault = Vault(password)
+    logger.info(":locked_with_key: Encrypting key...")
+    vault = Vault(password)
     return vault.vault.encrypt(keyfile_data)
 
 

@@ -21,6 +21,11 @@ import bittensor
 import json
 import bittensor.utils.networking as net
 
+import logging
+from bittensor.btlogging.defines import BITTENSOR_LOGGER_NAME
+
+logger = logging.getLogger(BITTENSOR_LOGGER_NAME)
+
 
 def prometheus_extrinsic(
     subtensor: "bittensor.subtensor",
@@ -82,16 +87,16 @@ def prometheus_extrinsic(
         "ip_type": net.ip_version(external_ip),
     }
 
-    with bittensor.__console__.status(":satellite: Checking Prometheus..."):
-        neuron = subtensor.get_neuron_for_pubkey_and_subnet(
-            wallet.hotkey.ss58_address, netuid=netuid
-        )
-        neuron_up_to_date = not neuron.is_null and call_params == {
-            "version": neuron.prometheus_info.version,
-            "ip": net.ip_to_int(neuron.prometheus_info.ip),
-            "port": neuron.prometheus_info.port,
-            "ip_type": neuron.prometheus_info.ip_type,
-        }
+    logger.info(":satellite: Checking Prometheus...")
+    neuron = subtensor.get_neuron_for_pubkey_and_subnet(
+        wallet.hotkey.ss58_address, netuid=netuid
+    )
+    neuron_up_to_date = not neuron.is_null and call_params == {
+        "version": neuron.prometheus_info.version,
+        "ip": net.ip_to_int(neuron.prometheus_info.ip),
+        "port": neuron.prometheus_info.port,
+        "ip_type": neuron.prometheus_info.ip_type,
+    }
 
     if neuron_up_to_date:
         bittensor.__console__.print(
@@ -113,28 +118,24 @@ def prometheus_extrinsic(
     # Add netuid, not in prometheus_info
     call_params["netuid"] = netuid
 
-    with bittensor.__console__.status(
-        ":satellite: Serving prometheus on: [white]{}:{}[/white] ...".format(
-            subtensor.network, netuid
-        )
-    ):
-        success, err = subtensor._do_serve_prometheus(
-            wallet=wallet,
-            call_params=call_params,
-            wait_for_finalization=wait_for_finalization,
-            wait_for_inclusion=wait_for_inclusion,
-        )
+    logger.info(":satellite: Serving prometheus on: [white]{}:{}[/white] ...".format(subtensor.network, netuid))
+    success, err = subtensor._do_serve_prometheus(
+        wallet=wallet,
+        call_params=call_params,
+        wait_for_finalization=wait_for_finalization,
+        wait_for_inclusion=wait_for_inclusion,
+    )
 
-        if wait_for_inclusion or wait_for_finalization:
-            if success is True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Served prometheus[/green]\n  [bold white]{}[/bold white]".format(
-                        json.dumps(call_params, indent=4, sort_keys=True)
-                    )
+    if wait_for_inclusion or wait_for_finalization:
+        if success is True:
+            bittensor.__console__.print(
+                ":white_heavy_check_mark: [green]Served prometheus[/green]\n  [bold white]{}[/bold white]".format(
+                    json.dumps(call_params, indent=4, sort_keys=True)
                 )
-                return True
-            else:
-                bittensor.__console__.print(f":cross_mark: [red]Failed[/red]: {err}")
-                return False
-        else:
+            )
             return True
+        else:
+            bittensor.__console__.print(f":cross_mark: [red]Failed[/red]: {err}")
+            return False
+    else:
+        return True
