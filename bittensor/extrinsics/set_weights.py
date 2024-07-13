@@ -92,45 +92,42 @@ def set_weights_extrinsic(
         ):
             return False, "Prompt refused."
 
-    with bittensor.__console__.status(
-        ":satellite: Setting weights on [white]{}[/white] ...".format(subtensor.network)
-    ):
-        try:
-            success, error_message = subtensor._do_set_weights(
-                wallet=wallet,
-                netuid=netuid,
-                uids=weight_uids,
-                vals=weight_vals,
-                version_key=version_key,
-                wait_for_finalization=wait_for_finalization,
-                wait_for_inclusion=wait_for_inclusion,
-            )
+    try:
+        success, error_message = subtensor._do_set_weights(
+            wallet=wallet,
+            netuid=netuid,
+            uids=weight_uids,
+            vals=weight_vals,
+            version_key=version_key,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_inclusion=wait_for_inclusion,
+        )
 
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True, "Not waiting for finalization or inclusion."
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True, "Not waiting for finalization or inclusion."
 
-            if success is True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Finalized[/green]"
-                )
-                bittensor.logging.success(
-                    prefix="Set weights",
-                    suffix="<green>Finalized: </green>" + str(success),
-                )
-                return True, "Successfully set weights and Finalized."
-            else:
-                bittensor.logging.error(
-                    msg=error_message,
-                    prefix="Set weights",
-                    suffix="<red>Failed: </red>",
-                )
-                return False, error_message
-
-        except Exception as e:
+        if success is True:
             bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+                ":white_heavy_check_mark: [green]Finalized[/green]"
             )
-            bittensor.logging.warning(
-                prefix="Set weights", suffix="<red>Failed: </red>" + str(e)
+            bittensor.logging.success(
+                prefix="Set weights",
+                suffix="<green>Finalized: </green>" + str(success),
             )
-            return False, str(e)
+            return True, "Successfully set weights and Finalized."
+        else:
+            bittensor.logging.error(
+                msg=error_message,
+                prefix="Set weights",
+                suffix="<red>Failed: </red>",
+            )
+            return False, error_message
+
+    except Exception as e:
+        bittensor.__console__.print(
+            ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+        )
+        bittensor.logging.warning(
+            prefix="Set weights", suffix="<red>Failed: </red>" + str(e)
+        )
+        return False, str(e)

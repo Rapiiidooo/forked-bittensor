@@ -407,15 +407,14 @@ class DelegateStakeCommand:
     def check_config(config: "bittensor.config"):
         if not config.get("delegate_ss58key"):
             # Check for delegates.
-            with bittensor.__console__.status(":satellite: Loading delegates..."):
-                subtensor = bittensor.subtensor(config=config, log_verbose=False)
-                delegates: List[bittensor.DelegateInfo] = subtensor.get_delegates()
-                try:
-                    prev_delegates = subtensor.get_delegates(
-                        max(0, subtensor.block - 1200)
-                    )
-                except SubstrateRequestException:
-                    prev_delegates = None
+            subtensor = bittensor.subtensor(config=config, log_verbose=False)
+            delegates: List[bittensor.DelegateInfo] = subtensor.get_delegates()
+            try:
+                prev_delegates = subtensor.get_delegates(
+                    max(0, subtensor.block - 1200)
+                )
+            except SubstrateRequestException:
+                prev_delegates = None
 
             if prev_delegates is None:
                 bittensor.__console__.print(
@@ -552,15 +551,14 @@ class DelegateUnstakeCommand:
 
         if not config.get("delegate_ss58key"):
             # Check for delegates.
-            with bittensor.__console__.status(":satellite: Loading delegates..."):
-                subtensor = bittensor.subtensor(config=config, log_verbose=False)
-                delegates: List[bittensor.DelegateInfo] = subtensor.get_delegates()
-                try:
-                    prev_delegates = subtensor.get_delegates(
-                        max(0, subtensor.block - 1200)
-                    )
-                except SubstrateRequestException:
-                    prev_delegates = None
+            subtensor = bittensor.subtensor(config=config, log_verbose=False)
+            delegates: List[bittensor.DelegateInfo] = subtensor.get_delegates()
+            try:
+                prev_delegates = subtensor.get_delegates(
+                    max(0, subtensor.block - 1200)
+                )
+            except SubstrateRequestException:
+                prev_delegates = None
 
             if prev_delegates is None:
                 bittensor.__console__.print(
@@ -668,13 +666,12 @@ class ListDelegatesCommand:
         r"""
         List all delegates on the network.
         """
-        with bittensor.__console__.status(":satellite: Loading delegates..."):
-            delegates: list[bittensor.DelegateInfo] = subtensor.get_delegates()
+        delegates: list[bittensor.DelegateInfo] = subtensor.get_delegates()
 
-            try:
-                prev_delegates = subtensor.get_delegates(max(0, subtensor.block - 1200))
-            except SubstrateRequestException:
-                prev_delegates = None
+        try:
+            prev_delegates = subtensor.get_delegates(max(0, subtensor.block - 1200))
+        except SubstrateRequestException:
+            prev_delegates = None
 
         if prev_delegates is None:
             bittensor.__console__.print(
