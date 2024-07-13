@@ -92,11 +92,10 @@ class TransferCommand:
         if not config.no_prompt:
             wallet = bittensor.wallet(config=config)
             subtensor = bittensor.subtensor(config=config, log_verbose=False)
-            with bittensor.__console__.status(":satellite: Checking Balance..."):
-                account_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
-                bittensor.__console__.print(
-                    "Balance: [green]{}[/green]".format(account_balance)
-                )
+            account_balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+            bittensor.__console__.print(
+                "Balance: [green]{}[/green]".format(account_balance)
+            )
 
         # Get amount.
         if not config.get("amount"):

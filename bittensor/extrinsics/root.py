@@ -70,32 +70,31 @@ def root_register_extrinsic(
         if not Confirm.ask("Register to root network?"):
             return False
 
-    with bittensor.__console__.status(":satellite: Registering to root network..."):
-        success, err_msg = subtensor._do_root_register(
-            wallet=wallet,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
+    success, err_msg = subtensor._do_root_register(
+        wallet=wallet,
+        wait_for_inclusion=wait_for_inclusion,
+        wait_for_finalization=wait_for_finalization,
+    )
+
+    if not success:
+        bittensor.__console__.print(f":cross_mark: [red]Failed[/red]: {err_msg}")
+        time.sleep(0.5)
+
+    # Successful registration, final check for neuron and pubkey
+    else:
+        is_registered = subtensor.is_hotkey_registered(
+            netuid=0, hotkey_ss58=wallet.hotkey.ss58_address
         )
-
-        if not success:
-            bittensor.__console__.print(f":cross_mark: [red]Failed[/red]: {err_msg}")
-            time.sleep(0.5)
-
-        # Successful registration, final check for neuron and pubkey
-        else:
-            is_registered = subtensor.is_hotkey_registered(
-                netuid=0, hotkey_ss58=wallet.hotkey.ss58_address
+        if is_registered:
+            bittensor.__console__.print(
+                ":white_heavy_check_mark: [green]Registered[/green]"
             )
-            if is_registered:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Registered[/green]"
-                )
-                return True
-            else:
-                # neuron not found, try again
-                bittensor.__console__.print(
-                    ":cross_mark: [red]Unknown error. Neuron not found.[/red]"
-                )
+            return True
+        else:
+            # neuron not found, try again
+            bittensor.__console__.print(
+                ":cross_mark: [red]Unknown error. Neuron not found.[/red]"
+            )
 
 
 @legacy_torch_api_compat
@@ -171,55 +170,50 @@ def set_root_weights_extrinsic(
         ):
             return False
 
-    with bittensor.__console__.status(
-        ":satellite: Setting root weights on [white]{}[/white] ...".format(
-            subtensor.network
+    try:
+        weight_uids, weight_vals = weight_utils.convert_weights_and_uids_for_emit(
+            netuids, weights
         )
-    ):
-        try:
-            weight_uids, weight_vals = weight_utils.convert_weights_and_uids_for_emit(
-                netuids, weights
-            )
-            success, error_message = subtensor._do_set_root_weights(
-                wallet=wallet,
-                netuid=0,
-                uids=weight_uids,
-                vals=weight_vals,
-                version_key=version_key,
-                wait_for_finalization=wait_for_finalization,
-                wait_for_inclusion=wait_for_inclusion,
-            )
+        success, error_message = subtensor._do_set_root_weights(
+            wallet=wallet,
+            netuid=0,
+            uids=weight_uids,
+            vals=weight_vals,
+            version_key=version_key,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_inclusion=wait_for_inclusion,
+        )
 
-            bittensor.__console__.print(success, error_message)
+        bittensor.__console__.print(success, error_message)
 
-            if not wait_for_finalization and not wait_for_inclusion:
-                return True
+        if not wait_for_finalization and not wait_for_inclusion:
+            return True
 
-            if success is True:
-                bittensor.__console__.print(
-                    ":white_heavy_check_mark: [green]Finalized[/green]"
-                )
-                bittensor.logging.success(
-                    prefix="Set weights",
-                    suffix="<green>Finalized: </green>" + str(success),
-                )
-                return True
-            else:
-                bittensor.__console__.print(
-                    f":cross_mark: [red]Failed[/red]: {error_message}"
-                )
-                bittensor.logging.warning(
-                    prefix="Set weights",
-                    suffix="<red>Failed: </red>" + str(error_message),
-                )
-                return False
-
-        except Exception as e:
-            # TODO( devs ): lets remove all of the bittensor.__console__ calls and replace with the bittensor logger.
+        if success is True:
             bittensor.__console__.print(
-                ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+                ":white_heavy_check_mark: [green]Finalized[/green]"
+            )
+            bittensor.logging.success(
+                prefix="Set weights",
+                suffix="<green>Finalized: </green>" + str(success),
+            )
+            return True
+        else:
+            bittensor.__console__.print(
+                f":cross_mark: [red]Failed[/red]: {error_message}"
             )
             bittensor.logging.warning(
-                prefix="Set weights", suffix="<red>Failed: </red>" + str(e)
+                prefix="Set weights",
+                suffix="<red>Failed: </red>" + str(error_message),
             )
             return False
+
+    except Exception as e:
+        # TODO( devs ): lets remove all of the bittensor.__console__ calls and replace with the bittensor logger.
+        bittensor.__console__.print(
+            ":cross_mark: [red]Failed[/red]: error:{}".format(e)
+        )
+        bittensor.logging.warning(
+            prefix="Set weights", suffix="<red>Failed: </red>" + str(e)
+        )
+        return False

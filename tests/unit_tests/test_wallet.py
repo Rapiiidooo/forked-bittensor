@@ -29,8 +29,7 @@ from unittest.mock import patch
 
 def legacy_encrypt_keyfile_data(keyfile_data: bytes, password: str = None) -> bytes:
     console = bittensor.__console__
-    with console.status(":locked_with_key: Encrypting key..."):
-        vault = Vault(password)
+    vault = Vault(password)
     return vault.vault.encrypt(keyfile_data)
 
 
